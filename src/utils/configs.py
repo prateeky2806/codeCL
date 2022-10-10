@@ -78,7 +78,7 @@ def add_args(parser):
 
 
     ## Directories.
-    parser.add_argument("--project_dir", type=str, default='/mnt/efs/people/ptky/project/incremental-learning',)
+    parser.add_argument("--project_dir", type=str, default='/nas-ssd/prateek/projects/codeCL/',)
     parser.add_argument("--data_dir", type=str, default='data',)
     parser.add_argument("--output_dir", default='saved_runs', type=str,
                         help="The output directory where the model predictions and checkpoints will be written.")
@@ -99,7 +99,7 @@ def add_args(parser):
 
 
     ## Huggingface params.
-    parser.add_argument("--config_name", default="", type=str, help="Pretrained config name or path if not the same as model_name")
+    parser.add_argument("--config_name", default="Salesforce/codet5-small", type=str, help="Pretrained config name or path if not the same as model_name")
     parser.add_argument("--model_name_or_path", default="Salesforce/codet5-small", type=str, help="Path to pre-trained model: e.g. Salesforce/codet5-small")
     parser.add_argument("--tokenizer_name", default="Salesforce/codet5-small", type=str, help="Pretrained tokenizer name or path if not the same as model_name")
     parser.add_argument("--load_model_path", default=None, type=str, help="Path to trained model: Should contain the .bin files")

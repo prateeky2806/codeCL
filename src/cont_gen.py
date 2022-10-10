@@ -8,6 +8,9 @@ using a masked language modeling (MLM) loss.
 """
 
 import os, sys
+os.environ['HF_HOME'] = os.path.join("/nas-hdd/prateek/.cache/huggingface")
+# os.environ['HF_HOME'] = os.path.join(f"{'/playpen/prateek' if os.path.exists('/playpen/prateek') else '/playpen2/home/prateek'}", ".cache/huggingface/")
+
 import logging
 import argparse
 import numpy as np
@@ -19,6 +22,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
+from torch.utils.data import Subset
 from models.models import build_or_load_gen_model
 from evaluator import smooth_bleu
 from evaluator.CodeBLEU import calc_code_bleu
@@ -28,8 +32,9 @@ from utils.metrics import *
 from utils.configs import *
 from utils.replay import Buffer
 from models.T5prompt import PromptTuneT5
-from dataloaders.generation_loader import CodeXGlueDataModule
+from dataloaders.generation_loader import CodeXGlueDataModule, BigQueryDataModule
 
+BIGQUERY = ['database', 'gui', 'networking', 'science', 'web']
 
 def val_ppl_epoch(args, val_dataloader, model, tokenizer, eval_task=None):
 
@@ -151,6 +156,67 @@ def val_bleu_epoch(args, val_dataloader, val_examples, model, tokenizer, max_tar
     logger.info(f"Train Task: {curr_task} Eval Task: {eval_task} \t " + "  ".join(f'{k}={v:.4f}' for k,v in sorted(results.items())))
     return results
 
+def val_bleu_epoch_bigquery(args, val_dataloader, model, tokenizer, split, max_target_length, curr_task, eval_task, fname, logger):
+    model.eval()
+    pred_ids = []
+    val_examples = []
+    bleu, codebleu = 0.0, 0.0
+
+    kwargs = { 'use_cache':True, 'num_beams': args.beam_size, 'early_stopping': (args.task == 'summarize'), 'max_length': max_target_length }
+    for batch in tqdm(val_dataloader, total=len(val_dataloader), desc=f"Train Task: {curr_task} Eval Task {eval_task}: Eval bleu"):
+        source_ids = batch[0].to(args.device)
+        val_examples += batch[2]
+        if args.io_queries:
+            target_ids = batch[1].to(args.device)
+        else:
+            target_ids = None
+        source_mask = source_ids.ne(tokenizer.pad_token_id).type(torch.float)
+        with torch.no_grad():
+            if args.model_type == 'roberta':
+                preds = model(source_ids=source_ids, source_mask=source_mask)
+                top_preds = [pred[0].cpu().numpy() for pred in preds]
+            else:
+                if hasattr(model, 'module'):
+                    model_to_generate = model.module
+                else:
+                    model_to_generate = model
+                if args.num_prompts_per_task > 0 or args.prompt_method == "pool":
+                    preds = model_to_generate.generate(source_ids, source_mask, target_ids, eval_task, kwargs)
+                else:
+                    preds = model_to_generate.generate(source_ids, attention_mask=source_mask, **kwargs)
+                top_preds = list(preds.cpu().numpy())
+            pred_ids.extend(top_preds)
+
+    pred_nls = [tokenizer.decode(id, skip_special_tokens=True, clean_up_tokenization_spaces=False) for id in pred_ids]
+    if split == "test":
+        pred_nls = [p.split("\n")[0] for p in pred_nls]
+
+
+    args.prediction_dir = os.path.join(args.run_output_dir, 'prediction')
+    os.makedirs(args.prediction_dir, exist_ok=True)
+    output_fn = os.path.join(args.prediction_dir, "test_{}.output".format(fname))
+    gold_fn = os.path.join(args.prediction_dir, "test_{}.gold".format(fname))
+    src_fn = os.path.join(args.prediction_dir, "test_{}.src".format(fname))
+
+    dev_accs = []
+    with open(output_fn, 'w') as f, open(gold_fn, 'w') as f1, open(src_fn, 'w') as f2:
+        for pred_nl, gold in zip(pred_nls, val_examples):
+            dev_accs.append(pred_nl.strip() == gold.target.strip())
+            f.write(pred_nl.strip().replace("\n", "\\n").replace("\t", "\\t") + '\n')
+            f1.write(gold.target.strip().replace("\n", "\\n").replace("\t", "\\t") + '\n')
+            f2.write(gold.source.strip().replace("\n", "\\n").replace("\t", "\\t") + '\n')
+
+    bleu = round(_bleu(gold_fn, output_fn), 2)
+    # codebleu = calc_code_bleu.get_codebleu(gold_fn, output_fn, "python")
+    results = {'em': np.mean(dev_accs) * 100, 'bleu': bleu, "codebleu": codebleu * 100}
+
+    results['bleu_em'] = results['bleu']
+
+    logger.info(f"Train Task: {curr_task} Eval Task: {eval_task} \t " + "  ".join(f'{k}={v:.4f}' for k,v in sorted(results.items())))
+    return results
+
+
+
 def train_epoch(args, model, dataloader, tokenizer, optimizer, scheduler, curr_epoch, curr_task, buffer=None, writer=None):
     bar = tqdm(dataloader, total=len(dataloader), desc="Training")
     nb_tr_examples, nb_tr_steps, tr_loss = 0, 0, 0
@@ -242,10 +308,15 @@ def epoch_end_replay_buffer(args, buffer, batch_size, model, tokenizer, optimize
             optimizer.step()
 
 def task_save_buffer_samples(args, buffer, dataset, task_idx):
+    all_tasks = args.stream.split(',')
     buffer_src_len, buffer_tgt_len = max(args.max_source_length), max(args.max_target_length)
     num_store_examples = buffer.buffer_portion_size
     store_indices = torch.randint(0, len(dataset), (num_store_examples,))
-    source_ids, target_ids = dataset[store_indices]
+    if all_tasks[task_idx] in ["gui", "web", "networking", "science", "database"]:
+        selected_data = [dataset[idx] for idx in store_indices]
+        source_ids, target_ids = dataset.collate_fn(selected_data)
+    else:
+        source_ids, target_ids = dataset[store_indices]
     source_ids = F.pad(source_ids, pad=(0, buffer_src_len - source_ids.shape[1], 0, 0))
     target_ids = F.pad(target_ids, pad=(0, buffer_tgt_len - target_ids.shape[1], 0, 0))
     task_labels = torch.ones(num_store_examples, dtype=int) * task_idx
@@ -279,13 +350,16 @@ def main():
         logger.info(f"{subprocess.list2cmdline(['python'] + sys.argv)}")
 
     config, model, tokenizer = build_or_load_gen_model(args)
-    datamodule = CodeXGlueDataModule(args, tokenizer)
+
+    if all([t in BIGQUERY for t in args.stream.split(',')]):
+        datamodule = BigQueryDataModule(args, tokenizer)
+    else:
+        datamodule = CodeXGlueDataModule(args, tokenizer)
     all_tasks = datamodule.all_tasks
     task_specific_params = ['num_train_epochs', 'learning_rate', 'patience', 'max_source_length',
                             'max_target_length', 'train_batch_size', 'eval_batch_size']
     args = get_task_arglist(args, task_specific_params, datamodule)
     datamodule.setup(stage='fit')
-
 
     if args.num_prompts_per_task > 0 or args.prompt_method == "pool":
         logger.info(f"***** Prompt Learning Rate: {args.prompt_lr} *****")
@@ -311,7 +385,7 @@ def main():
         fa_dict[tt] = open(os.path.join(args.log_dir, f'{tt}.log'), 'a+', 1)
 
     if not args.no_train:
-        datamodule.setup(stage='fit')
+        # datamodule.setup(stage='fit')
         if args.replay != '' and args.buffer_size > 0:
             buffer = Buffer(args.buffer_size, args.device, len(all_tasks), mode=args.replay)
             args.replay_epoch_end = True if args.replay != 'reservoir' else False
@@ -409,10 +483,15 @@ def main():
                     torch.cuda.empty_cache()
 
                     if not args.no_eval_bleu:
-                        val_bleu_examples, val_bleu_data, bleu_dataloader = datamodule.get_bleu_dataloader(curr_task)
-                        assert args.eval_batch_size[curr_idx] == bleu_dataloader.batch_size, f"Eval Bleu Batch size doesn't match for task {curr_task}"
                         savename = f'{curr_task}_{curr_task}_e{curr_epoch:.0f}'
-                        results_bleu = val_bleu_epoch(args, bleu_dataloader, val_bleu_examples, model, tokenizer, task_max_target_length, curr_task, curr_task, savename, logger)
+                        if curr_task in ["gui", "web", "networking", "science", "database"]:
+                            bleu_dataloader = datamodule.get_bleu_dataloader(curr_task)
+                            assert args.eval_batch_size[curr_idx] == bleu_dataloader.batch_size, f"Eval Bleu Batch size doesn't match for task {curr_task}"
+                            results_bleu = val_bleu_epoch_bigquery(args, bleu_dataloader, model, tokenizer, "val", task_max_target_length, curr_task, curr_task, savename, logger)
+                        else:
+                            val_bleu_examples, val_bleu_data, bleu_dataloader = datamodule.get_bleu_dataloader(curr_task)
+                            assert args.eval_batch_size[curr_idx] == bleu_dataloader.batch_size, f"Eval Bleu Batch size doesn't match for task {curr_task}"
+                            results_bleu = val_bleu_epoch(args, bleu_dataloader, val_bleu_examples, model, tokenizer, task_max_target_length, curr_task, curr_task, savename, logger)
                         dev_bleu, dev_em, dev_bleu_em = results_bleu['bleu'], results_bleu['em'], results_bleu['bleu_em']
 
                         if not args.debug:
@@ -455,12 +534,18 @@ def main():
                     val_ppl = val_ppl_epoch(args, val_dataloader[eval_task], model, tokenizer, eval_task=eval_task)
                     # # Bleu on sampled data faster but not comparable across tasks.
                     # val_bleu_examples, val_bleu_data, bleu_dataloader = datamodule.get_bleu_dataloader(eval_task)
-                    val_bleu_examples, val_bleu_data, bleu_dataloader = datamodule.get_bleu_dataloader(eval_task, all_bleu=True)
-                    assert args.train_batch_size[eval_idx] * args.n_gpu == val_dataloader[eval_task].batch_size, f"Eval PPL Batch size doesn't match for task {eval_task}"
-                    assert args.eval_batch_size[eval_idx] == bleu_dataloader.batch_size, f"Eval Bleu Batch size doesn't match for task {eval_task}"
-
                     savename = f'{curr_task}_{eval_task}_end'
-                    results = val_bleu_epoch(args, bleu_dataloader, val_bleu_examples, model, tokenizer, args.max_target_length[eval_idx], curr_task, eval_task, savename, logger)
+                    if curr_task in ["gui", "web", "networking", "science", "database"]:
+                        bleu_dataloader = datamodule.get_bleu_dataloader(curr_task, all_bleu=True)
+                        assert args.train_batch_size[eval_idx] * args.n_gpu == val_dataloader[eval_task].batch_size, f"Eval PPL Batch size doesn't match for task {eval_task}"
+                        assert args.eval_batch_size[eval_idx] == bleu_dataloader.batch_size, f"Eval Bleu Batch size doesn't match for task {eval_task}"
+                        results = val_bleu_epoch_bigquery(args, bleu_dataloader, model, tokenizer, "val", args.max_target_length[eval_idx], curr_task, eval_task, savename, logger)
+                    else:
+                        val_bleu_examples, val_bleu_data, bleu_dataloader = datamodule.get_bleu_dataloader(eval_task, all_bleu=True)
+                        assert args.train_batch_size[eval_idx] * args.n_gpu == val_dataloader[eval_task].batch_size, f"Eval PPL Batch size doesn't match for task {eval_task}"
+                        assert args.eval_batch_size[eval_idx] == bleu_dataloader.batch_size, f"Eval Bleu Batch size doesn't match for task {eval_task}"
+                        results = val_bleu_epoch(args, bleu_dataloader, val_bleu_examples, model, tokenizer, args.max_target_length[eval_idx], curr_task, eval_task, savename, logger)
+
                     cl_bleu[curr_idx, eval_idx] = results['bleu']
                     cl_codebleu[curr_idx, eval_idx] = results['codebleu']
                     cl_em[curr_idx, eval_idx] = results['em']
@@ -532,7 +617,10 @@ def main():
         logger.info("***** Testing *****".upper())
         logger.info(f"  Batch size = {args.eval_batch_size}")
         datamodule.setup(stage='test')
-        test_examples, test_data, test_dataloader = datamodule.test_dataloader()
+        if curr_task in ["gui", "web", "networking", "science", "database"]:
+            test_dataloader = datamodule.test_dataloader()
+        else:
+            test_examples, test_data, test_dataloader = datamodule.test_dataloader()
 
         test_bleu, test_em, test_codebleu = np.empty(len(all_tasks)), np.empty(len(all_tasks)), np.empty(len(all_tasks))
 
@@ -569,9 +657,16 @@ def main():
             fa_result.write(f"model,task,bleu,em,codebleu\n")
             for test_idx, test_task in enumerate(all_tasks):
                 fa_dict[test_task].write(reload_msg)
-                assert args.eval_batch_size[test_idx] == test_dataloader[test_task].batch_size, f"Test dataloader Batch size doesn't match for task {test_task}"
 
-                result = val_bleu_epoch(args, test_dataloader[test_task], test_examples[test_task], model, tokenizer, args.max_target_length[test_idx], curr_task, test_task, criteria, logger)
+                savename = f'{curr_task}_{eval_task}_end'
+                if curr_task in ["gui", "web", "networking", "science", "database"]:
+                    assert args.eval_batch_size[test_idx] == test_dataloader[test_task].batch_size, f"Test dataloader Batch size doesn't match for task {test_task}"
+                    result = val_bleu_epoch_bigquery(args, test_dataloader[test_task], model, tokenizer, "test", args.max_target_length[test_idx], curr_task, test_task, criteria, logger)
+                else:
+                    assert args.eval_batch_size[test_idx] == test_dataloader[test_task].batch_size, f"Test dataloader Batch size doesn't match for task {test_task}"
+                    result = val_bleu_epoch(args, test_dataloader[test_task], test_examples[test_task], model, tokenizer, args.max_target_length[test_idx], curr_task, test_task, criteria, logger)
+
+                # result = val_bleu_epoch(args, test_dataloader[test_task], test_examples[test_task], model, tokenizer, args.max_target_length[test_idx], curr_task, test_task, criteria, logger)
                 test_bleu[test_idx], test_em[test_idx] = result['bleu'], result['em']
                 test_codebleu[test_idx] = result['codebleu'] if 'codebleu' in result else 0
                 result_str = f"[Model: {criteria} Task: {test_task}] " + " ".join(f"{k}:{v:.4f}" for k,v in result.items()) + "\n"

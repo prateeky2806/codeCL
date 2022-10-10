@@ -1,10 +1,7 @@
-# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
-# SPDX-License-Identifier: Apache-2.0
-
-# !/usr/bin/python
+#!/usr/bin/python
 
 '''
-This script was adapted from the original version by hieuhoang1972 which is part of MOSES.
+This script was adapted from the original version by hieuhoang1972 which is part of MOSES. 
 '''
 
 # $Id: bleu.py 1307 2007-03-14 22:22:36Z hieuhoang1972 $

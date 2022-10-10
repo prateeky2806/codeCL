@@ -1,7 +1,7 @@
-# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
-# SPDX-License-Identifier: Apache-2.0
-
-# Modifications Copyright (C) 2001-2020 NLTK Project
+# -*- coding: utf-8 -*-
+# Natural Language Toolkit: BLEU Score
+#
+# Copyright (C) 2001-2020 NLTK Project
 # Authors: Chin Yee Lee, Hengfeng Li, Ruxin Hou, Calvin Tanujaya Lim
 # Contributors: Björn Mattsson, Dmitrijs Milajevs, Liling Tan
 # URL: <http://nltk.org/>

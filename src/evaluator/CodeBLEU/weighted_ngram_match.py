@@ -1,7 +1,5 @@
-# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
-# SPDX-License-Identifier: Apache-2.0
-
-# Modifications Copyright (c) Microsoft Corporation.
+# -*- coding: utf-8 -*-
+# Copyright (c) Microsoft Corporation. 
 # Licensed under the MIT license.
 
 # Natural Language Toolkit: BLEU Score

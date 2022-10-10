@@ -1,7 +1,4 @@
-# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
-# SPDX-License-Identifier: Apache-2.0
-
-# Modifications Copyright (c) Microsoft Corporation.
+# Copyright (c) Microsoft Corporation. 
 # Licensed under the MIT license.
 
 from evaluator.CodeBLEU.parser import DFG_python, DFG_java, DFG_ruby, DFG_go, DFG_php, DFG_javascript, DFG_csharp

@@ -1,7 +1,4 @@
-# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
-# SPDX-License-Identifier: Apache-2.0
-
-# Modifications Copyright (c) Microsoft Corporation.
+# Copyright (c) Microsoft Corporation. 
 # Licensed under the MIT license.
 
 from tree_sitter import Language, Parser
@@ -16,10 +13,10 @@ def DFG_python(root_node,index_to_code,states):
     if_statement=['if_statement']
     for_statement=['for_statement']
     while_statement=['while_statement']
-    do_first_statement=['for_in_clause']
+    do_first_statement=['for_in_clause'] 
     def_statement=['default_parameter']
-    states=states.copy()
-    if (len(root_node.children)==0 or root_node.type in ['string_literal','string','character_literal']) and root_node.type!='comment':
+    states=states.copy() 
+    if (len(root_node.children)==0 or root_node.type in ['string_literal','string','character_literal']) and root_node.type!='comment':        
         idx,code=index_to_code[(root_node.start_point,root_node.end_point)]
         if root_node.type==code:
             return [],states
@@ -44,14 +41,14 @@ def DFG_python(root_node,index_to_code,states):
             name_indexs=tree_to_variable_index(name,index_to_code)
             value_indexs=tree_to_variable_index(value,index_to_code)
             temp,states=DFG_python(value,index_to_code,states)
-            DFG+=temp
+            DFG+=temp            
             for index1 in name_indexs:
                 idx1,code1=index_to_code[index1]
                 for index2 in value_indexs:
                     idx2,code2=index_to_code[index2]
                     DFG.append((code1,idx1,'comesFrom',[code2],[idx2]))
-                states[code1]=[idx1]
-            return sorted(DFG,key=lambda x:x[1]),states
+                states[code1]=[idx1]   
+            return sorted(DFG,key=lambda x:x[1]),states        
     elif root_node.type in assignment:
         if root_node.type=='for_in_clause':
             right_nodes=[root_node.children[-1]]
@@ -72,7 +69,7 @@ def DFG_python(root_node,index_to_code,states):
         for node in right_nodes:
             temp,states=DFG_python(node,index_to_code,states)
             DFG+=temp
-
+            
         for left_node,right_node in zip(left_nodes,right_nodes):
             left_tokens_index=tree_to_variable_index(left_node,index_to_code)
             right_tokens_index=tree_to_variable_index(right_node,index_to_code)
@@ -82,7 +79,7 @@ def DFG_python(root_node,index_to_code,states):
                 temp.append((code1,idx1,'computedFrom',[index_to_code[x][1] for x in right_tokens_index],
                              [index_to_code[x][0] for x in right_tokens_index]))
                 states[code1]=[idx1]
-            DFG+=temp
+            DFG+=temp        
         return sorted(DFG,key=lambda x:x[1]),states
     elif root_node.type in if_statement:
         DFG=[]
@@ -138,10 +135,10 @@ def DFG_python(root_node,index_to_code,states):
                     temp.append((code1,idx1,'computedFrom',[index_to_code[x][1] for x in right_tokens_index],
                                  [index_to_code[x][0] for x in right_tokens_index]))
                     states[code1]=[idx1]
-                DFG+=temp
+                DFG+=temp   
             if  root_node.children[-1].type=="block":
                 temp,states=DFG_python(root_node.children[-1],index_to_code,states)
-                DFG+=temp
+                DFG+=temp 
         dic={}
         for x in DFG:
             if (x[0],x[1],x[2]) not in dic:
@@ -151,12 +148,12 @@ def DFG_python(root_node,index_to_code,states):
                 dic[(x[0],x[1],x[2])][1]=sorted(list(set(dic[(x[0],x[1],x[2])][1]+x[4])))
         DFG=[(x[0],x[1],x[2],y[0],y[1]) for x,y in sorted(dic.items(),key=lambda t:t[0][1])]
         return sorted(DFG,key=lambda x:x[1]),states
-    elif root_node.type in while_statement:
+    elif root_node.type in while_statement:  
         DFG=[]
         for i in range(2):
             for child in root_node.children:
                 temp,states=DFG_python(child,index_to_code,states)
-                DFG+=temp
+                DFG+=temp    
         dic={}
         for x in DFG:
             if (x[0],x[1],x[2]) not in dic:
@@ -165,7 +162,7 @@ def DFG_python(root_node,index_to_code,states):
                 dic[(x[0],x[1],x[2])][0]=list(set(dic[(x[0],x[1],x[2])][0]+x[3]))
                 dic[(x[0],x[1],x[2])][1]=sorted(list(set(dic[(x[0],x[1],x[2])][1]+x[4])))
         DFG=[(x[0],x[1],x[2],y[0],y[1]) for x,y in sorted(dic.items(),key=lambda t:t[0][1])]
-        return sorted(DFG,key=lambda x:x[1]),states
+        return sorted(DFG,key=lambda x:x[1]),states        
     else:
         DFG=[]
         for child in root_node.children:
@@ -176,9 +173,9 @@ def DFG_python(root_node,index_to_code,states):
             if child.type not in do_first_statement:
                 temp,states=DFG_python(child,index_to_code,states)
                 DFG+=temp
-
+        
         return sorted(DFG,key=lambda x:x[1]),states
-
+        
 
 def DFG_java(root_node,index_to_code,states):
     assignment=['assignment_expression']
@@ -188,7 +185,7 @@ def DFG_java(root_node,index_to_code,states):
     for_statement=['for_statement']
     enhanced_for_statement=['enhanced_for_statement']
     while_statement=['while_statement']
-    do_first_statement=[]
+    do_first_statement=[]    
     states=states.copy()
     if (len(root_node.children)==0 or root_node.type in ['string_literal','string','character_literal']) and root_node.type!='comment':
         idx,code=index_to_code[(root_node.start_point,root_node.end_point)]
@@ -215,28 +212,28 @@ def DFG_java(root_node,index_to_code,states):
             name_indexs=tree_to_variable_index(name,index_to_code)
             value_indexs=tree_to_variable_index(value,index_to_code)
             temp,states=DFG_java(value,index_to_code,states)
-            DFG+=temp
+            DFG+=temp            
             for index1 in name_indexs:
                 idx1,code1=index_to_code[index1]
                 for index2 in value_indexs:
                     idx2,code2=index_to_code[index2]
                     DFG.append((code1,idx1,'comesFrom',[code2],[idx2]))
-                states[code1]=[idx1]
+                states[code1]=[idx1]   
             return sorted(DFG,key=lambda x:x[1]),states
     elif root_node.type in assignment:
         left_nodes=root_node.child_by_field_name('left')
         right_nodes=root_node.child_by_field_name('right')
         DFG=[]
         temp,states=DFG_java(right_nodes,index_to_code,states)
-        DFG+=temp
+        DFG+=temp            
         name_indexs=tree_to_variable_index(left_nodes,index_to_code)
-        value_indexs=tree_to_variable_index(right_nodes,index_to_code)
+        value_indexs=tree_to_variable_index(right_nodes,index_to_code)        
         for index1 in name_indexs:
             idx1,code1=index_to_code[index1]
             for index2 in value_indexs:
                 idx2,code2=index_to_code[index2]
                 DFG.append((code1,idx1,'computedFrom',[code2],[idx2]))
-            states[code1]=[idx1]
+            states[code1]=[idx1]   
         return sorted(DFG,key=lambda x:x[1]),states
     elif root_node.type in increment_statement:
         DFG=[]
@@ -247,7 +244,7 @@ def DFG_java(root_node,index_to_code,states):
                 idx2,code2=index_to_code[index2]
                 DFG.append((code1,idx1,'computedFrom',[code2],[idx2]))
             states[code1]=[idx1]
-        return sorted(DFG,key=lambda x:x[1]),states
+        return sorted(DFG,key=lambda x:x[1]),states   
     elif root_node.type in if_statement:
         DFG=[]
         current_states=states.copy()
@@ -289,7 +286,7 @@ def DFG_java(root_node,index_to_code,states):
         for child in root_node.children:
             if flag:
                 temp,states=DFG_java(child,index_to_code,states)
-                DFG+=temp
+                DFG+=temp                
             elif child.type=="local_variable_declaration":
                 flag=True
         dic={}
@@ -308,17 +305,17 @@ def DFG_java(root_node,index_to_code,states):
         DFG=[]
         for i in range(2):
             temp,states=DFG_java(value,index_to_code,states)
-            DFG+=temp
+            DFG+=temp       
             name_indexs=tree_to_variable_index(name,index_to_code)
-            value_indexs=tree_to_variable_index(value,index_to_code)
+            value_indexs=tree_to_variable_index(value,index_to_code)        
             for index1 in name_indexs:
                 idx1,code1=index_to_code[index1]
                 for index2 in value_indexs:
                     idx2,code2=index_to_code[index2]
                     DFG.append((code1,idx1,'computedFrom',[code2],[idx2]))
-                states[code1]=[idx1]
+                states[code1]=[idx1]   
             temp,states=DFG_java(body,index_to_code,states)
-            DFG+=temp
+            DFG+=temp                       
         dic={}
         for x in DFG:
             if (x[0],x[1],x[2]) not in dic:
@@ -328,12 +325,12 @@ def DFG_java(root_node,index_to_code,states):
                 dic[(x[0],x[1],x[2])][1]=sorted(list(set(dic[(x[0],x[1],x[2])][1]+x[4])))
         DFG=[(x[0],x[1],x[2],y[0],y[1]) for x,y in sorted(dic.items(),key=lambda t:t[0][1])]
         return sorted(DFG,key=lambda x:x[1]),states
-    elif root_node.type in while_statement:
+    elif root_node.type in while_statement:  
         DFG=[]
         for i in range(2):
             for child in root_node.children:
                 temp,states=DFG_java(child,index_to_code,states)
-                DFG+=temp
+                DFG+=temp    
         dic={}
         for x in DFG:
             if (x[0],x[1],x[2]) not in dic:
@@ -342,7 +339,7 @@ def DFG_java(root_node,index_to_code,states):
                 dic[(x[0],x[1],x[2])][0]=list(set(dic[(x[0],x[1],x[2])][0]+x[3]))
                 dic[(x[0],x[1],x[2])][1]=sorted(list(set(dic[(x[0],x[1],x[2])][1]+x[4])))
         DFG=[(x[0],x[1],x[2],y[0],y[1]) for x,y in sorted(dic.items(),key=lambda t:t[0][1])]
-        return sorted(DFG,key=lambda x:x[1]),states
+        return sorted(DFG,key=lambda x:x[1]),states        
     else:
         DFG=[]
         for child in root_node.children:
@@ -353,7 +350,7 @@ def DFG_java(root_node,index_to_code,states):
             if child.type not in do_first_statement:
                 temp,states=DFG_java(child,index_to_code,states)
                 DFG+=temp
-
+        
         return sorted(DFG,key=lambda x:x[1]),states
 
 def DFG_csharp(root_node,index_to_code,states):
@@ -364,7 +361,7 @@ def DFG_csharp(root_node,index_to_code,states):
     for_statement=['for_statement']
     enhanced_for_statement=['for_each_statement']
     while_statement=['while_statement']
-    do_first_statement=[]
+    do_first_statement=[]    
     states=states.copy()
     if (len(root_node.children)==0 or root_node.type in ['string_literal','string','character_literal']) and root_node.type!='comment':
         idx,code=index_to_code[(root_node.start_point,root_node.end_point)]
@@ -395,28 +392,28 @@ def DFG_csharp(root_node,index_to_code,states):
             name_indexs=tree_to_variable_index(name,index_to_code)
             value_indexs=tree_to_variable_index(value,index_to_code)
             temp,states=DFG_csharp(value,index_to_code,states)
-            DFG+=temp
+            DFG+=temp            
             for index1 in name_indexs:
                 idx1,code1=index_to_code[index1]
                 for index2 in value_indexs:
                     idx2,code2=index_to_code[index2]
                     DFG.append((code1,idx1,'comesFrom',[code2],[idx2]))
-                states[code1]=[idx1]
+                states[code1]=[idx1]   
             return sorted(DFG,key=lambda x:x[1]),states
     elif root_node.type in assignment:
         left_nodes=root_node.child_by_field_name('left')
         right_nodes=root_node.child_by_field_name('right')
         DFG=[]
         temp,states=DFG_csharp(right_nodes,index_to_code,states)
-        DFG+=temp
+        DFG+=temp            
         name_indexs=tree_to_variable_index(left_nodes,index_to_code)
-        value_indexs=tree_to_variable_index(right_nodes,index_to_code)
+        value_indexs=tree_to_variable_index(right_nodes,index_to_code)        
         for index1 in name_indexs:
             idx1,code1=index_to_code[index1]
             for index2 in value_indexs:
                 idx2,code2=index_to_code[index2]
                 DFG.append((code1,idx1,'computedFrom',[code2],[idx2]))
-            states[code1]=[idx1]
+            states[code1]=[idx1]   
         return sorted(DFG,key=lambda x:x[1]),states
     elif root_node.type in increment_statement:
         DFG=[]
@@ -427,7 +424,7 @@ def DFG_csharp(root_node,index_to_code,states):
                 idx2,code2=index_to_code[index2]
                 DFG.append((code1,idx1,'computedFrom',[code2],[idx2]))
             states[code1]=[idx1]
-        return sorted(DFG,key=lambda x:x[1]),states
+        return sorted(DFG,key=lambda x:x[1]),states   
     elif root_node.type in if_statement:
         DFG=[]
         current_states=states.copy()
@@ -469,7 +466,7 @@ def DFG_csharp(root_node,index_to_code,states):
         for child in root_node.children:
             if flag:
                 temp,states=DFG_csharp(child,index_to_code,states)
-                DFG+=temp
+                DFG+=temp                
             elif child.type=="local_variable_declaration":
                 flag=True
         dic={}
@@ -488,17 +485,17 @@ def DFG_csharp(root_node,index_to_code,states):
         DFG=[]
         for i in range(2):
             temp,states=DFG_csharp(value,index_to_code,states)
-            DFG+=temp
+            DFG+=temp       
             name_indexs=tree_to_variable_index(name,index_to_code)
-            value_indexs=tree_to_variable_index(value,index_to_code)
+            value_indexs=tree_to_variable_index(value,index_to_code)        
             for index1 in name_indexs:
                 idx1,code1=index_to_code[index1]
                 for index2 in value_indexs:
                     idx2,code2=index_to_code[index2]
                     DFG.append((code1,idx1,'computedFrom',[code2],[idx2]))
-                states[code1]=[idx1]
+                states[code1]=[idx1]   
             temp,states=DFG_csharp(body,index_to_code,states)
-            DFG+=temp
+            DFG+=temp                       
         dic={}
         for x in DFG:
             if (x[0],x[1],x[2]) not in dic:
@@ -508,12 +505,12 @@ def DFG_csharp(root_node,index_to_code,states):
                 dic[(x[0],x[1],x[2])][1]=sorted(list(set(dic[(x[0],x[1],x[2])][1]+x[4])))
         DFG=[(x[0],x[1],x[2],y[0],y[1]) for x,y in sorted(dic.items(),key=lambda t:t[0][1])]
         return sorted(DFG,key=lambda x:x[1]),states
-    elif root_node.type in while_statement:
+    elif root_node.type in while_statement:  
         DFG=[]
         for i in range(2):
             for child in root_node.children:
                 temp,states=DFG_csharp(child,index_to_code,states)
-                DFG+=temp
+                DFG+=temp    
         dic={}
         for x in DFG:
             if (x[0],x[1],x[2]) not in dic:
@@ -522,7 +519,7 @@ def DFG_csharp(root_node,index_to_code,states):
                 dic[(x[0],x[1],x[2])][0]=list(set(dic[(x[0],x[1],x[2])][0]+x[3]))
                 dic[(x[0],x[1],x[2])][1]=sorted(list(set(dic[(x[0],x[1],x[2])][1]+x[4])))
         DFG=[(x[0],x[1],x[2],y[0],y[1]) for x,y in sorted(dic.items(),key=lambda t:t[0][1])]
-        return sorted(DFG,key=lambda x:x[1]),states
+        return sorted(DFG,key=lambda x:x[1]),states        
     else:
         DFG=[]
         for child in root_node.children:
@@ -533,18 +530,18 @@ def DFG_csharp(root_node,index_to_code,states):
             if child.type not in do_first_statement:
                 temp,states=DFG_csharp(child,index_to_code,states)
                 DFG+=temp
-
+        
         return sorted(DFG,key=lambda x:x[1]),states
 
 
-
-
+    
+    
 def DFG_ruby(root_node,index_to_code,states):
     assignment=['assignment','operator_assignment']
     if_statement=['if','elsif','else','unless','when']
     for_statement=['for']
     while_statement=['while_modifier','until']
-    do_first_statement=[]
+    do_first_statement=[] 
     def_statement=['keyword_parameter']
     if (len(root_node.children)==0 or root_node.type in ['string_literal','string','character_literal']) and root_node.type!='comment':
         states=states.copy()
@@ -572,14 +569,14 @@ def DFG_ruby(root_node,index_to_code,states):
             name_indexs=tree_to_variable_index(name,index_to_code)
             value_indexs=tree_to_variable_index(value,index_to_code)
             temp,states=DFG_ruby(value,index_to_code,states)
-            DFG+=temp
+            DFG+=temp            
             for index1 in name_indexs:
                 idx1,code1=index_to_code[index1]
                 for index2 in value_indexs:
                     idx2,code2=index_to_code[index2]
                     DFG.append((code1,idx1,'comesFrom',[code2],[idx2]))
-                states[code1]=[idx1]
-            return sorted(DFG,key=lambda x:x[1]),states
+                states[code1]=[idx1]   
+            return sorted(DFG,key=lambda x:x[1]),states        
     elif root_node.type in assignment:
         left_nodes=[x for x in root_node.child_by_field_name('left').children if x.type!=',']
         right_nodes=[x for x in root_node.child_by_field_name('right').children if x.type!=',']
@@ -598,7 +595,7 @@ def DFG_ruby(root_node,index_to_code,states):
         for node in right_nodes:
             temp,states=DFG_ruby(node,index_to_code,states)
             DFG+=temp
-
+            
         for left_node,right_node in zip(left_nodes,right_nodes):
             left_tokens_index=tree_to_variable_index(left_node,index_to_code)
             right_tokens_index=tree_to_variable_index(right_node,index_to_code)
@@ -608,7 +605,7 @@ def DFG_ruby(root_node,index_to_code,states):
                 temp.append((code1,idx1,'computedFrom',[index_to_code[x][1] for x in right_tokens_index],
                              [index_to_code[x][0] for x in right_tokens_index]))
                 states[code1]=[idx1]
-            DFG+=temp
+            DFG+=temp        
         return sorted(DFG,key=lambda x:x[1]),states
     elif root_node.type in if_statement:
         DFG=[]
@@ -658,9 +655,9 @@ def DFG_ruby(root_node,index_to_code,states):
                     temp.append((code1,idx1,'computedFrom',[index_to_code[x][1] for x in right_tokens_index],
                                  [index_to_code[x][0] for x in right_tokens_index]))
                     states[code1]=[idx1]
-                DFG+=temp
+                DFG+=temp 
             temp,states=DFG_ruby(root_node.child_by_field_name('body'),index_to_code,states)
-            DFG+=temp
+            DFG+=temp 
         dic={}
         for x in DFG:
             if (x[0],x[1],x[2]) not in dic:
@@ -670,12 +667,12 @@ def DFG_ruby(root_node,index_to_code,states):
                 dic[(x[0],x[1],x[2])][1]=sorted(list(set(dic[(x[0],x[1],x[2])][1]+x[4])))
         DFG=[(x[0],x[1],x[2],y[0],y[1]) for x,y in sorted(dic.items(),key=lambda t:t[0][1])]
         return sorted(DFG,key=lambda x:x[1]),states
-    elif root_node.type in while_statement:
+    elif root_node.type in while_statement:  
         DFG=[]
         for i in range(2):
             for child in root_node.children:
                 temp,states=DFG_ruby(child,index_to_code,states)
-                DFG+=temp
+                DFG+=temp    
         dic={}
         for x in DFG:
             if (x[0],x[1],x[2]) not in dic:
@@ -684,7 +681,7 @@ def DFG_ruby(root_node,index_to_code,states):
                 dic[(x[0],x[1],x[2])][0]=list(set(dic[(x[0],x[1],x[2])][0]+x[3]))
                 dic[(x[0],x[1],x[2])][1]=sorted(list(set(dic[(x[0],x[1],x[2])][1]+x[4])))
         DFG=[(x[0],x[1],x[2],y[0],y[1]) for x,y in sorted(dic.items(),key=lambda t:t[0][1])]
-        return sorted(DFG,key=lambda x:x[1]),states
+        return sorted(DFG,key=lambda x:x[1]),states        
     else:
         DFG=[]
         for child in root_node.children:
@@ -695,7 +692,7 @@ def DFG_ruby(root_node,index_to_code,states):
             if child.type not in do_first_statement:
                 temp,states=DFG_ruby(child,index_to_code,states)
                 DFG+=temp
-
+        
         return sorted(DFG,key=lambda x:x[1]),states
 
 def DFG_go(root_node,index_to_code,states):
@@ -706,7 +703,7 @@ def DFG_go(root_node,index_to_code,states):
     for_statement=['for_statement']
     enhanced_for_statement=[]
     while_statement=[]
-    do_first_statement=[]
+    do_first_statement=[]    
     states=states.copy()
     if (len(root_node.children)==0 or root_node.type in ['string_literal','string','character_literal']) and root_node.type!='comment':
         idx,code=index_to_code[(root_node.start_point,root_node.end_point)]
@@ -733,28 +730,28 @@ def DFG_go(root_node,index_to_code,states):
             name_indexs=tree_to_variable_index(name,index_to_code)
             value_indexs=tree_to_variable_index(value,index_to_code)
             temp,states=DFG_go(value,index_to_code,states)
-            DFG+=temp
+            DFG+=temp            
             for index1 in name_indexs:
                 idx1,code1=index_to_code[index1]
                 for index2 in value_indexs:
                     idx2,code2=index_to_code[index2]
                     DFG.append((code1,idx1,'comesFrom',[code2],[idx2]))
-                states[code1]=[idx1]
+                states[code1]=[idx1]   
             return sorted(DFG,key=lambda x:x[1]),states
     elif root_node.type in assignment:
         left_nodes=root_node.child_by_field_name('left')
         right_nodes=root_node.child_by_field_name('right')
         DFG=[]
         temp,states=DFG_go(right_nodes,index_to_code,states)
-        DFG+=temp
+        DFG+=temp            
         name_indexs=tree_to_variable_index(left_nodes,index_to_code)
-        value_indexs=tree_to_variable_index(right_nodes,index_to_code)
+        value_indexs=tree_to_variable_index(right_nodes,index_to_code)        
         for index1 in name_indexs:
             idx1,code1=index_to_code[index1]
             for index2 in value_indexs:
                 idx2,code2=index_to_code[index2]
                 DFG.append((code1,idx1,'computedFrom',[code2],[idx2]))
-            states[code1]=[idx1]
+            states[code1]=[idx1]   
         return sorted(DFG,key=lambda x:x[1]),states
     elif root_node.type in increment_statement:
         DFG=[]
@@ -765,7 +762,7 @@ def DFG_go(root_node,index_to_code,states):
                 idx2,code2=index_to_code[index2]
                 DFG.append((code1,idx1,'computedFrom',[code2],[idx2]))
             states[code1]=[idx1]
-        return sorted(DFG,key=lambda x:x[1]),states
+        return sorted(DFG,key=lambda x:x[1]),states   
     elif root_node.type in if_statement:
         DFG=[]
         current_states=states.copy()
@@ -812,11 +809,11 @@ def DFG_go(root_node,index_to_code,states):
         for child in root_node.children:
             if flag:
                 temp,states=DFG_go(child,index_to_code,states)
-                DFG+=temp
+                DFG+=temp                
             elif child.type=="for_clause":
                 if child.child_by_field_name('update') is not None:
                     temp,states=DFG_go(child.child_by_field_name('update'),index_to_code,states)
-                    DFG+=temp
+                    DFG+=temp                 
                 flag=True
         dic={}
         for x in DFG:
@@ -837,11 +834,11 @@ def DFG_go(root_node,index_to_code,states):
             if child.type not in do_first_statement:
                 temp,states=DFG_go(child,index_to_code,states)
                 DFG+=temp
-
+        
         return sorted(DFG,key=lambda x:x[1]),states
 
-
-
+    
+    
 
 def DFG_php(root_node,index_to_code,states):
     assignment=['assignment_expression','augmented_assignment_expression']
@@ -851,7 +848,7 @@ def DFG_php(root_node,index_to_code,states):
     for_statement=['for_statement']
     enhanced_for_statement=['foreach_statement']
     while_statement=['while_statement']
-    do_first_statement=[]
+    do_first_statement=[]    
     states=states.copy()
     if (len(root_node.children)==0 or root_node.type in ['string_literal','string','character_literal']) and root_node.type!='comment':
         idx,code=index_to_code[(root_node.start_point,root_node.end_point)]
@@ -878,28 +875,28 @@ def DFG_php(root_node,index_to_code,states):
             name_indexs=tree_to_variable_index(name,index_to_code)
             value_indexs=tree_to_variable_index(value,index_to_code)
             temp,states=DFG_php(value,index_to_code,states)
-            DFG+=temp
+            DFG+=temp            
             for index1 in name_indexs:
                 idx1,code1=index_to_code[index1]
                 for index2 in value_indexs:
                     idx2,code2=index_to_code[index2]
                     DFG.append((code1,idx1,'comesFrom',[code2],[idx2]))
-                states[code1]=[idx1]
+                states[code1]=[idx1]   
             return sorted(DFG,key=lambda x:x[1]),states
     elif root_node.type in assignment:
         left_nodes=root_node.child_by_field_name('left')
         right_nodes=root_node.child_by_field_name('right')
         DFG=[]
         temp,states=DFG_php(right_nodes,index_to_code,states)
-        DFG+=temp
+        DFG+=temp            
         name_indexs=tree_to_variable_index(left_nodes,index_to_code)
-        value_indexs=tree_to_variable_index(right_nodes,index_to_code)
+        value_indexs=tree_to_variable_index(right_nodes,index_to_code)        
         for index1 in name_indexs:
             idx1,code1=index_to_code[index1]
             for index2 in value_indexs:
                 idx2,code2=index_to_code[index2]
                 DFG.append((code1,idx1,'computedFrom',[code2],[idx2]))
-            states[code1]=[idx1]
+            states[code1]=[idx1]   
         return sorted(DFG,key=lambda x:x[1]),states
     elif root_node.type in increment_statement:
         DFG=[]
@@ -910,7 +907,7 @@ def DFG_php(root_node,index_to_code,states):
                 idx2,code2=index_to_code[index2]
                 DFG.append((code1,idx1,'computedFrom',[code2],[idx2]))
             states[code1]=[idx1]
-        return sorted(DFG,key=lambda x:x[1]),states
+        return sorted(DFG,key=lambda x:x[1]),states   
     elif root_node.type in if_statement:
         DFG=[]
         current_states=states.copy()
@@ -955,8 +952,8 @@ def DFG_php(root_node,index_to_code,states):
         for child in root_node.children:
             if flag:
                 temp,states=DFG_php(child,index_to_code,states)
-                DFG+=temp
-            elif child.type=="assignment_expression":
+                DFG+=temp                
+            elif child.type=="assignment_expression":               
                 flag=True
         dic={}
         for x in DFG:
@@ -980,17 +977,17 @@ def DFG_php(root_node,index_to_code,states):
         DFG=[]
         for i in range(2):
             temp,states=DFG_php(value,index_to_code,states)
-            DFG+=temp
+            DFG+=temp       
             name_indexs=tree_to_variable_index(name,index_to_code)
-            value_indexs=tree_to_variable_index(value,index_to_code)
+            value_indexs=tree_to_variable_index(value,index_to_code)        
             for index1 in name_indexs:
                 idx1,code1=index_to_code[index1]
                 for index2 in value_indexs:
                     idx2,code2=index_to_code[index2]
                     DFG.append((code1,idx1,'computedFrom',[code2],[idx2]))
-                states[code1]=[idx1]
+                states[code1]=[idx1]   
             temp,states=DFG_php(body,index_to_code,states)
-            DFG+=temp
+            DFG+=temp                       
         dic={}
         for x in DFG:
             if (x[0],x[1],x[2]) not in dic:
@@ -1000,12 +997,12 @@ def DFG_php(root_node,index_to_code,states):
                 dic[(x[0],x[1],x[2])][1]=sorted(list(set(dic[(x[0],x[1],x[2])][1]+x[4])))
         DFG=[(x[0],x[1],x[2],y[0],y[1]) for x,y in sorted(dic.items(),key=lambda t:t[0][1])]
         return sorted(DFG,key=lambda x:x[1]),states
-    elif root_node.type in while_statement:
+    elif root_node.type in while_statement:  
         DFG=[]
         for i in range(2):
             for child in root_node.children:
                 temp,states=DFG_php(child,index_to_code,states)
-                DFG+=temp
+                DFG+=temp    
         dic={}
         for x in DFG:
             if (x[0],x[1],x[2]) not in dic:
@@ -1014,7 +1011,7 @@ def DFG_php(root_node,index_to_code,states):
                 dic[(x[0],x[1],x[2])][0]=list(set(dic[(x[0],x[1],x[2])][0]+x[3]))
                 dic[(x[0],x[1],x[2])][1]=sorted(list(set(dic[(x[0],x[1],x[2])][1]+x[4])))
         DFG=[(x[0],x[1],x[2],y[0],y[1]) for x,y in sorted(dic.items(),key=lambda t:t[0][1])]
-        return sorted(DFG,key=lambda x:x[1]),states
+        return sorted(DFG,key=lambda x:x[1]),states        
     else:
         DFG=[]
         for child in root_node.children:
@@ -1025,7 +1022,7 @@ def DFG_php(root_node,index_to_code,states):
             if child.type not in do_first_statement:
                 temp,states=DFG_php(child,index_to_code,states)
                 DFG+=temp
-
+        
         return sorted(DFG,key=lambda x:x[1]),states
 
 
@@ -1037,7 +1034,7 @@ def DFG_javascript(root_node,index_to_code,states):
     for_statement=['for_statement']
     enhanced_for_statement=[]
     while_statement=['while_statement']
-    do_first_statement=[]
+    do_first_statement=[]    
     states=states.copy()
     if (len(root_node.children)==0 or root_node.type in ['string_literal','string','character_literal']) and root_node.type!='comment':
         idx,code=index_to_code[(root_node.start_point,root_node.end_point)]
@@ -1064,28 +1061,28 @@ def DFG_javascript(root_node,index_to_code,states):
             name_indexs=tree_to_variable_index(name,index_to_code)
             value_indexs=tree_to_variable_index(value,index_to_code)
             temp,states=DFG_javascript(value,index_to_code,states)
-            DFG+=temp
+            DFG+=temp            
             for index1 in name_indexs:
                 idx1,code1=index_to_code[index1]
                 for index2 in value_indexs:
                     idx2,code2=index_to_code[index2]
                     DFG.append((code1,idx1,'comesFrom',[code2],[idx2]))
-                states[code1]=[idx1]
+                states[code1]=[idx1]   
             return sorted(DFG,key=lambda x:x[1]),states
     elif root_node.type in assignment:
         left_nodes=root_node.child_by_field_name('left')
         right_nodes=root_node.child_by_field_name('right')
         DFG=[]
         temp,states=DFG_javascript(right_nodes,index_to_code,states)
-        DFG+=temp
+        DFG+=temp            
         name_indexs=tree_to_variable_index(left_nodes,index_to_code)
-        value_indexs=tree_to_variable_index(right_nodes,index_to_code)
+        value_indexs=tree_to_variable_index(right_nodes,index_to_code)        
         for index1 in name_indexs:
             idx1,code1=index_to_code[index1]
             for index2 in value_indexs:
                 idx2,code2=index_to_code[index2]
                 DFG.append((code1,idx1,'computedFrom',[code2],[idx2]))
-            states[code1]=[idx1]
+            states[code1]=[idx1]   
         return sorted(DFG,key=lambda x:x[1]),states
     elif root_node.type in increment_statement:
         DFG=[]
@@ -1096,7 +1093,7 @@ def DFG_javascript(root_node,index_to_code,states):
                 idx2,code2=index_to_code[index2]
                 DFG.append((code1,idx1,'computedFrom',[code2],[idx2]))
             states[code1]=[idx1]
-        return sorted(DFG,key=lambda x:x[1]),states
+        return sorted(DFG,key=lambda x:x[1]),states   
     elif root_node.type in if_statement:
         DFG=[]
         current_states=states.copy()
@@ -1118,7 +1115,7 @@ def DFG_javascript(root_node,index_to_code,states):
                 others_states.append(new_states)
         others_states.append(current_states)
         if tag is False:
-            others_states.append(states)
+            others_states.append(states)        
         new_states={}
         for dic in others_states:
             for key in dic:
@@ -1143,8 +1140,8 @@ def DFG_javascript(root_node,index_to_code,states):
         for child in root_node.children:
             if flag:
                 temp,states=DFG_javascript(child,index_to_code,states)
-                DFG+=temp
-            elif child.type=="variable_declaration":
+                DFG+=temp                
+            elif child.type=="variable_declaration":               
                 flag=True
         dic={}
         for x in DFG:
@@ -1155,12 +1152,12 @@ def DFG_javascript(root_node,index_to_code,states):
                 dic[(x[0],x[1],x[2])][1]=sorted(list(set(dic[(x[0],x[1],x[2])][1]+x[4])))
         DFG=[(x[0],x[1],x[2],y[0],y[1]) for x,y in sorted(dic.items(),key=lambda t:t[0][1])]
         return sorted(DFG,key=lambda x:x[1]),states
-    elif root_node.type in while_statement:
+    elif root_node.type in while_statement:  
         DFG=[]
         for i in range(2):
             for child in root_node.children:
                 temp,states=DFG_javascript(child,index_to_code,states)
-                DFG+=temp
+                DFG+=temp    
         dic={}
         for x in DFG:
             if (x[0],x[1],x[2]) not in dic:
@@ -1169,7 +1166,7 @@ def DFG_javascript(root_node,index_to_code,states):
                 dic[(x[0],x[1],x[2])][0]=list(set(dic[(x[0],x[1],x[2])][0]+x[3]))
                 dic[(x[0],x[1],x[2])][1]=sorted(list(set(dic[(x[0],x[1],x[2])][1]+x[4])))
         DFG=[(x[0],x[1],x[2],y[0],y[1]) for x,y in sorted(dic.items(),key=lambda t:t[0][1])]
-        return sorted(DFG,key=lambda x:x[1]),states
+        return sorted(DFG,key=lambda x:x[1]),states    
     else:
         DFG=[]
         for child in root_node.children:
@@ -1180,8 +1177,8 @@ def DFG_javascript(root_node,index_to_code,states):
             if child.type not in do_first_statement:
                 temp,states=DFG_javascript(child,index_to_code,states)
                 DFG+=temp
-
+        
         return sorted(DFG,key=lambda x:x[1]),states
 
 
-
+     

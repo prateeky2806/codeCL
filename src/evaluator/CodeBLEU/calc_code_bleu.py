@@ -1,7 +1,4 @@
-# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
-# SPDX-License-Identifier: Apache-2.0
-
-# Modifications Copyright (c) Microsoft Corporation.
+# Copyright (c) Microsoft Corporation. 
 # Licensed under the MIT license.
 # https://github.com/microsoft/CodeXGLUE/tree/main/Code-Code/code-to-code-trans/evaluator/CodeBLEU
 
