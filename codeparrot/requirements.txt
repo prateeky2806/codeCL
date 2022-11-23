@@ -1,0 +1,13 @@
+transformers==4.19.0
+datasets
+wandb==0.12.0
+tensorboard==2.6.0
+torch==1.10.0+cu113
+torchvision==0.11.1+cu113
+torchaudio==0.10.0+cu113
+huggingface-hub
+git+https://github.com/huggingface/accelerate.git@3c45b6f760ad8745be9ebc9bbb26f5b04dea4abe
+datasketch==1.5.7
+dpu_utils
+protobuf==3.20.0
+deepspeed
