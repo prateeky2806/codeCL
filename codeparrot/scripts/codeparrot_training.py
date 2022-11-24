@@ -7,6 +7,8 @@ from pathlib import Path
 import datasets
 import torch
 from datasets import load_dataset
+
+from tqdm.auto import tqdm
 from torch.optim import AdamW
 from torch.utils.data import IterableDataset
 from torch.utils.data.dataloader import DataLoader
@@ -241,7 +243,7 @@ args.project_name = args.save_dir.split("/")[-1]
 
 # Accelerator
 accelerator = Accelerator(
-    log_with=["wandb"],
+    log_with=["wandb", "tensorboard"],
     logging_dir=f"{args.save_dir}/log",
 )
 acc_state = {str(k): str(v) for k, v in accelerator.state.__dict__.items()}
@@ -301,12 +303,13 @@ if args.resume_from_checkpoint:
         ]  # Sorts folders by date modified, most recent checkpoint is the last
     # Extract the step of the checkpoint to continue from there
     training_difference = os.path.splitext(path)[0]
-    resume_step = int(training_difference.replace("step_", ""))
+    resume_step = int(training_difference.split("_")[-1])
 
 # Log model, tokenizer, and saving info
-logger.info(f"Task: {args.task_name}\tLoading model from {args.model_ckpt}")
+logger.info(f"\n\nTask: {args.task_name}\tLoading model from {args.model_ckpt}")
 logger.info(f"Task: {args.task_name}\tLoading tokenizer from {args.tokenizer_ckpt}")
-logger.info(f"Task: {args.task_name}\tSaving results at {args.save_dir}")
+logger.info(f"Task: {args.task_name}\tLoading data from {args.dataset_name_train}")
+logger.info(f"Task: {args.task_name}\tSaving results at {args.save_dir}\n\n")
 
 # Train model
 model.train()
@@ -314,6 +317,7 @@ completed_steps = 0
 t_start = time.time()
 loss_tracking = 0
 best_ppl = 1e10
+progress_bar = tqdm(range(args.max_train_steps), desc=f"Train task: {args.task_name}")
 for step, batch in enumerate(train_dataloader, start=1):
     if args.resume_from_checkpoint and step < resume_step:
         continue  # we need to skip steps until we reach the resumed step
@@ -353,35 +357,42 @@ for step, batch in enumerate(train_dataloader, start=1):
         t_start = time.time()
         loss_tracking = 0
         completed_steps += 1
+        progress_bar.update(1)
+
     if step % args.save_checkpoint_steps == 0:
         logger.info("Evaluating and saving model checkpoint")
         eval_loss, perplexity = evaluate(args)
         log_metrics(step, {"loss/eval": eval_loss, "perplexity/eval": perplexity})
         accelerator.wait_for_everyone()
-        save_dir = os.path.join(args.save_dir, f"{args.task_name}_{step}")
-        accelerator.save_state(save_dir)
         if perplexity < best_ppl:
+            save_dir = os.path.join(args.save_dir, f"{args.task_name}_best_{step}")
+            accelerator.save_state(save_dir)
             unwrapped_model = accelerator.unwrap_model(model)
+            # unwrapped_model.save_pretrained(
+            #     os.path.join(args.save_dir, f"best"), save_function=accelerator.save
+            # )
             unwrapped_model.save_pretrained(
-                os.path.join(args.save_dir, f"best"), save_function=accelerator.save
+                os.path.join(args.save_dir, f"best"),
+                save_function=accelerator.save,
             )
         model.train()
     if completed_steps >= args.max_train_steps:
         break
 
-# Evaluate and save the last checkpoint
-logger.info("Evaluating and saving model after training")
-eval_loss, perplexity = evaluate(args)
-log_metrics(step, {"loss/eval": eval_loss, "perplexity/eval": perplexity})
-accelerator.wait_for_everyone()
-unwrapped_model = accelerator.unwrap_model(model)
-unwrapped_model.save_pretrained(
-    os.path.join(args.save_dir, f"last_{args.task_name}"),
-    save_function=accelerator.save,
-)
-# save_dir = os.path.join(args.save_dir, f"last_{args.task_name}")
-# accelerator.save_state(save_dir)
-
+# # Evaluate and save the last checkpoint
+# logger.info("Evaluating and saving model after training")
+# eval_loss, perplexity = evaluate(args)
+# log_metrics(step, {"loss/eval": eval_loss, "perplexity/eval": perplexity})
+# accelerator.wait_for_everyone()
+# if perplexity < best_ppl:
+#     unwrapped_model = accelerator.unwrap_model(model)
+#     unwrapped_model.save_pretrained(
+#         os.path.join(args.save_dir, f"best"), save_function=accelerator.save
+#     )
+#     unwrapped_model.save_pretrained(
+#         os.path.join(args.save_dir, f"{args.task_name}_best"),
+#         save_function=accelerator.save,
+#     )
 
 # accelerate launch scripts/codeparrot_training.py --model_ckpt=gpt2-medium --train_batch_size=4 --valid_batch_size=8 --learning_rate=5e-4 --num_warmup_steps=2000 --gradient_accumulation=1 --save_dir=./clone_model/gpt-medium --gradient_checkpointing=False --max_train_steps=150000 --save_checkpoint_steps=10 --dataset_name_train=/nas-hdd/prateek/data/package_level/gui_train.jsonl --dataset_name_valid=/nas-hdd/prateek/data/package_level/gui_val.jsonl
 # export CUDA_VISIBLE_DEVICES=3; python scripts/codeparrot_training.py --model_ckpt=gpt2-medium --train_batch_size=4 --valid_batch_size=8 --learning_rate=5e-4 --num_warmup_steps=2000 --gradient_accumulation=1 --save_dir=./clone_model/gpt-medium --gradient_checkpointing=False --max_train_steps=150000 --save_checkpoint_steps=10 --dataset_name_train=/nas-hdd/prateek/data/package_level/other_train.jsonl --dataset_name_valid=/nas-hdd/prateek/data/package_level/other_val.jsonl

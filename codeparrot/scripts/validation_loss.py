@@ -105,7 +105,7 @@ def evaluate_all():
     set_seed(args.seed)
 
     model_paths = {
-        task_name: os.path.join(args.load_model_dir, f"last_{task_name}")
+        task_name: os.path.join(args.load_model_dir, f"{task_name}_best")
         for task_name in args.tasks
     }
     model_paths["zeroshot"] = args.start_ckpt
@@ -154,3 +154,4 @@ if __name__ == "__main__":
 
 
 # export CUDA_VISIBLE_DEVICES=3; python scripts/validation_loss.py --tasks zeroshot other web --load_model_dir /nas-ssd/prateek/projects/codeCL/codeparrot/saved_models/test_all --load_data_dir /nas-ssd/prateek/projects/codeCL/data/bigquery
+# accelerate launch scripts/validation_loss.py --tasks zeroshot other networking science --load_model_dir /nas-ssd/prateek/projects/codeCL/codeparrot/saved_models/test_all --load_data_dir /nas-ssd/prateek/projects/codeCL/data/bigquery

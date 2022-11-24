@@ -1,0 +1,6 @@
+{
+    "python.pythonPath": "/playpen/prateek/anaconda3/envs/codecl/bin/python3.7",
+    "python.linting.pylintEnabled": false,
+    "python.formatting.provider": "black",
+    "editor.formatOnSave": true
+}
