@@ -52,6 +52,7 @@ if __name__ == "__main__":
     parser.add_argument("--accelerate", action="store_true")
     parser.add_argument("--only_cmd", action="store_true")
 
+    parser.add_argument("--lr_scheduler_type", type=str, default="cosine")
     parser.add_argument("--dataset_dir", type=str, default=None)
     parser.add_argument("--dataset_name_train", type=str, default=None)
     parser.add_argument("--dataset_name_valid", type=str, default=None)
